@@ -1,0 +1,98 @@
+version: "3.4"
+services:
+
+  app:
+    build:
+      context: .
+      dockerfile: compose/Dockerfile.app
+    container_name: app
+    ports:
+      - 8080:8080
+    volumes:
+      - ./logs/:/opt/app/logs/
+      - shared:/opt/app/
+    tty: true
+    networks:
+      - elastic
+
+  elasticsearch:
+    # image: docker.elastic.co/elasticsearch/elasticsearch:8.5.3
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.8.0
+    container_name: elasticsearch
+    ports:
+      - 9200:9200
+      - 9300:9300
+    environment:
+      discovery.type: single-node
+      #host.name: elasticsearch
+    networks:
+      - elastic
+  
+  kibana:
+      # image: docker.elastic.co/kibana/kibana:8.5.3
+      image: docker.elastic.co/kibana/kibana:7.8.0
+      container_name: kibana
+      ports:
+        - 5601:5601
+      # environment:
+      #  ELASTICSEARCH_URL: http://elasticsearch:9200
+      # volumes:
+      #  - ./compose/kibana.yml:/usr/share/kibana/config/kibana.yml:ro
+      networks:
+        - elastic
+      links:
+        - elasticsearch
+      depends_on:
+        - elasticsearch
+  
+  filebeat:
+      # image: docker.elastic.co/beats/filebeat:8.5.3
+      image: docker.elastic.co/beats/filebeat:7.8.0
+      container_name: filebeat
+      volumes:
+        - ./compose/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+        - ./logs/:/usr/share/filebeat/logs
+        - shared:/opt/app/
+      environment:
+        ELASTICSEARCH_URL: http://elasticsearch:9200
+      networks:
+        - elastic
+      links:
+        - kibana
+        - elasticsearch
+      depends_on:
+        elasticsearch:
+          condition: service_healthy
+        kibana:
+          condition: service_healthy
+        logstash:
+          condition: service_healthy
+
+  logstash:
+    # image: docker.elastic.co/logstash/logstash:8.5.3
+    image: docker.elastic.co/logstash/logstash:7.8.0
+    container_name: logstash
+    ports:
+      - 5044:5044
+    volumes:
+      - ./compose/logstash.yml:/usr/share/logstash/config/logstash.yml:ro
+      # - ./compose/logstash.yml:/usr/share/logstash/config/logstash.yml:ro
+      - ./logs:/usr/share/logstash/logs
+      # - ./compose/pipeline:/usr/share/logstash/pipeline:ro
+      - ./compose/logstash.conf:/usr/share/logstash/config/logstash.conf:ro
+    networks:
+      - elastic
+    links:
+      - kibana
+      - elasticsearch
+    depends_on:
+      - elasticsearch
+    # command: logstash -f /usr/share/logstash/config/logstash.yml
+    tty: true
+
+volumes:
+  shared:
+
+networks:
+  elastic:
+    driver: bridge

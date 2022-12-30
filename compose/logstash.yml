@@ -1,0 +1,16 @@
+---
+## Default Logstash configuration from Logstash base image.
+## https://github.com/elastic/logstash/blob/main/docker/data/logstash/config/logstash-full.yml
+#
+pipeline:
+  batch:
+    size: 125
+    delay: 50
+
+# http.host: "http://elasticsearch:9200"
+
+# node.name: logstash
+
+path:
+  data: "/usr/share/logstash/logs/"
+
